@@ -4,7 +4,7 @@ A small, self-hosted, **Obsidian-style markdown vault with a web UI** and a buil
 
 > Independent, clean-room project, **not affiliated with or endorsed by Obsidian** (Obsidian is a trademark of Dynalist Inc.). No Obsidian code or assets are used. The behavior is designed to be compatible with Obsidian vault conventions, so the same folder also opens in Obsidian.
 
-**Showcase page:** [`docs/showcase/index.html`](docs/showcase/index.html). Download it and open it offline for an interactive tour of the architecture and data flows.
+**Live showcase:** **https://tabtq.github.io/obsidian-web-brain/** is an interactive tour of the architecture, data flows, editor and MCP tools. To view it offline, download [`docs/showcase/index.html`](docs/showcase/index.html) and open it in a browser; it's a single self-contained file.
 
 ## Features
 
