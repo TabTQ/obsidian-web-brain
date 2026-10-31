@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Obsidian Web Brain</title>
+<style>
+/* Design tokens. Light is the base; dark overrides below (system preference, then explicit choice). */
+:root {
+  --bg: #e8ecef; --surface: #f6f8f9; --surface2: #dde3e8; --ink: #13202b; --muted: #54626f; --line: #c4cdd5;
+  --accent: #c2410c; --accent-ink: #ffffff; --accent-soft: #f6dccf;
+  --ok: #237a3b; --warn: #b45309; --bad: #b42323; --info: #1d5fa8;
+  --ok-soft: #dcefe1; --warn-soft: #f8e9d3; --bad-soft: #f6dada; --info-soft: #dae6f4;
+  --code-bg: #13202b; --code-ink: #e4eaee;
+  --shadow: 0 1px 2px rgba(19,32,43,.06), 0 6px 18px rgba(19,32,43,.07);
+  --radius: 4px; --radius-lg: 6px;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f171d; --surface: #172129; --surface2: #202c36; --ink: #e4eaee; --muted: #93a1ad; --line: #2c3944;
+    --accent: #ff8a4c; --accent-ink: #1a0e07; --accent-soft: #3a2418; --ok: #4cc46f; --warn: #f0a040; --bad: #ff6b6b; --info: #6ea8ff;
+    --ok-soft: #173222; --warn-soft: #3a2a14; --bad-soft: #3a1a1a; --info-soft: #172a44; --code-bg: #0a1015; --code-ink: #e4eaee;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f171d; --surface: #172129; --surface2: #202c36; --ink: #e4eaee; --muted: #93a1ad; --line: #2c3944;
+  --accent: #ff8a4c; --accent-ink: #1a0e07; --accent-soft: #3a2418; --ok: #4cc46f; --warn: #f0a040; --bad: #ff6b6b; --info: #6ea8ff;
+  --ok-soft: #173222; --warn-soft: #3a2a14; --bad-soft: #3a1a1a; --info-soft: #172a44; --code-bg: #0a1015; --code-ink: #e4eaee;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35); color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--f-body); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+a { color: var(--accent); }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.2; margin: 0; }
+.mono { font-family: var(--f-mono); }
+.muted { color: var(--muted); }
+.grow { flex: 1; }
+.eyebrow { font: 500 11px var(--f-mono); text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* ---- top bar + tabs ---- */
+.bar { position: sticky; top: 0; z-index: 20; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 10px 16px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.brand { font: 700 15px var(--f-display); display: flex; gap: 8px; align-items: center; margin-right: 10px; }
+.brand i { width: 12px; height: 12px; background: var(--accent); display: inline-block; border-radius: var(--radius); }
+.nav { display: flex; gap: 2px; flex-wrap: wrap; }
+.nav button { background: none; border: 0; padding: 6px 12px; color: var(--muted); border-radius: var(--radius); font-weight: 500; }
+.nav button[aria-selected="true"] { color: var(--ink); background: var(--surface2); }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 18px 16px 48px; }
+.head { margin: 0 0 16px; }
+.head h1 { font-size: clamp(1.4rem, 3vw, 1.9rem); font-weight: 700; }
+.sub { color: var(--muted); margin: 6px 0 0; max-width: 70ch; }
+.view[hidden] { display: none; }
+
+/* ---- controls ---- */
+.btn { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 12px; font-size: 14px; font-weight: 500; white-space: nowrap; }
+.btn:hover { border-color: var(--ink); }
+.btn.pri { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn.sm { padding: 3px 9px; font-size: 13px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; flex-wrap: wrap; }
+.seg button { border: 0; background: var(--surface); padding: 6px 12px; font-size: 13px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.search { padding: 7px 10px; border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); min-width: min(100%, 220px); }
+.pill { font: 500 10.5px var(--f-mono); text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 2px; background: var(--surface2); color: var(--muted); white-space: nowrap; display: inline-block; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); } .pill.info { background: var(--info-soft); color: var(--info); }
+.pill.acc { background: var(--accent-soft); color: var(--accent); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 14px; }
+.banner { border: 1px solid var(--line); border-left: 4px solid var(--info); background: var(--surface); padding: 8px 12px; border-radius: var(--radius); font-size: 14px; margin: 0 0 14px; }
+.banner.warn { border-left-color: var(--warn); } .banner.ok { border-left-color: var(--ok); } .banner.bad { border-left-color: var(--bad); }
+.callout { border-left: 4px solid var(--info); background: var(--info-soft); padding: 10px 14px; border-radius: var(--radius); margin: 12px 0; font-size: 14.5px; }
+.callout.warn { border-color: var(--warn); background: var(--warn-soft); } .callout.tip { border-color: var(--ok); background: var(--ok-soft); } .callout.danger { border-color: var(--bad); background: var(--bad-soft); }
+
+/* ---- panes, tiles, tables, code ---- */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.pane { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 0 0 16px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+.tile .k { font: 500 11px var(--f-mono); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.tile .v { font: 600 1.3rem var(--f-display); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { background: var(--surface2); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+code { font-family: var(--f-mono); font-size: 13px; background: var(--surface2); padding: 1px 5px; border-radius: 3px; }
+.codeblock { background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius-lg); margin: 10px 0; overflow: hidden; }
+.codeblock pre { margin: 0; padding: 12px; overflow-x: auto; font: 13px/1.5 var(--f-mono); }
+
+/* ---- diagram ---- */
+.stage { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow-x: auto; }
+.stage svg { display: block; width: 100%; height: auto; }
+.zone rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 5 4; }
+.zone.t-accent rect { fill: var(--accent-soft); } .zone.t-info rect { fill: var(--info-soft); }
+.zone.t-ok rect { fill: var(--ok-soft); } .zone.t-warn rect { fill: var(--warn-soft); } .zone.t-bad rect { fill: var(--bad-soft); }
+.zone text { font: 500 11px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; fill: var(--muted); }
+.node { cursor: pointer; transition: opacity .15s; }
+.node rect.box { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.node:hover rect.box, .node:focus-visible rect.box { stroke: var(--accent); }
+.node.sel rect.box { stroke: var(--accent); stroke-width: 2.4; fill: var(--accent-soft); }
+.node rect.ico { fill: var(--accent-soft); } .node.sel rect.ico { fill: var(--surface); }
+.node text.i { font: 700 11px var(--f-mono); fill: var(--accent); text-anchor: middle; }
+.node text.n { font: 600 13px var(--f-body); fill: var(--ink); }
+.node text.s { font: 400 10.5px var(--f-mono); fill: var(--muted); }
+.edge path { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linejoin: round; }
+.edge.dashed path { stroke-dasharray: 6 4; }
+.edge text { font: 500 10.5px var(--f-mono); fill: var(--muted); text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 5px; stroke-linejoin: round; }
+.edge.hi path { stroke: var(--accent); stroke-width: 2.4; }
+.edge.hi text { fill: var(--accent); }
+svg.focus .node:not(.rel), svg.focus .edge:not(.hi) { opacity: .28; }
+.edge.step path { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 8 6; animation: flow .7s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -14; } }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 22px; height: 0; border-top: 2px solid var(--muted); display: inline-block; }
+.legend i.d { border-top-style: dashed; }
+.detail h2 { font-size: 1.15rem; margin: 6px 0 4px; }
+.detail dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 10px 0; font-size: 13.5px; }
+.detail dt { font: 500 11px var(--f-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding-top: 2px; }
+.detail dd { margin: 0; }
+.links { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.links button { width: 100%; text-align: left; background: var(--surface2); border: 1px solid transparent; border-radius: var(--radius); padding: 6px 10px; font-size: 13.5px; }
+.links button:hover { border-color: var(--accent); }
+.links .lbl { font: 400 11px var(--f-mono); color: var(--muted); display: block; }
+.stepcap { font-size: 14px; min-height: 2.9em; margin: 8px 0 0; }
+
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } .stage svg { min-width: var(--minw, 760px); } }
+@media (prefers-reduced-motion: reduce) { .edge.step path { animation: none; } .node { transition: none; } }
+
+/* ---- Editor mockup (mk-) ---- */
+.mk-note { font-size: 13px; margin: 0 0 10px; }
+.mk-app { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.mk-top { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface2); font: 400 12px var(--f-mono); color: var(--muted); }
+.mk-tab { padding: 3px 10px; border-radius: var(--radius); background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.mk-body { display: grid; grid-template-columns: 190px minmax(0, 1fr) 230px; min-height: 430px; }
+.mk-tree, .mk-side { padding: 10px; background: var(--surface); border-right: 1px solid var(--line); font-size: 13px; }
+.mk-side { border-right: 0; border-left: 1px solid var(--line); }
+.mk-tree .f { padding: 3px 6px; border-radius: var(--radius); cursor: pointer; color: var(--muted); border: 1px solid transparent; background: none; display: block; width: 100%; text-align: left; font: inherit; }
+.mk-tree .f:hover { color: var(--ink); background: var(--surface2); }
+.mk-tree .f[aria-current="true"] { color: var(--ink); background: var(--accent-soft); border-color: var(--accent); }
+.mk-tree .d { font: 600 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 10px 0 4px; }
+.mk-tree .ind { padding-left: 18px; }
+.mk-doc { padding: 18px 26px 26px; background: var(--bg); min-width: 0; }
+.mk-doc h3 { font: 700 22px var(--f-display); margin: 0 0 12px; }
+.mk-line { font-size: 15px; line-height: 1.75; margin: 0; min-height: 1.75em; padding: 0 6px; border-radius: var(--radius); overflow-wrap: anywhere; }
+.mk-line.act { background: var(--surface2); }
+.mk-mark { color: var(--muted); font-family: var(--f-mono); font-size: .9em; }
+.mk-link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.mk-link.un { opacity: .6; }
+.mk-tag { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 0 7px; font-size: 13px; }
+.mk-hl { background: var(--warn-soft); }
+.mk-code { font-family: var(--f-mono); font-size: 13px; background: var(--surface2); padding: 1px 5px; border-radius: var(--radius); }
+.mk-h { font: 700 18px var(--f-display); }
+.mk-callout { border-left: 3px solid var(--info); background: var(--info-soft); border-radius: var(--radius); padding: 8px 12px; margin: 6px 0; font-size: 14px; }
+.mk-callout b { color: var(--info); display: block; margin-bottom: 2px; }
+.mk-box { display: inline-block; width: 13px; height: 13px; border: 1.5px solid var(--muted); border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+.mk-box.on { background: var(--accent); border-color: var(--accent); }
+.mk-done { color: var(--muted); text-decoration: line-through; }
+.mk-src { font-family: var(--f-mono); font-size: 13.5px; }
+.mk-side .k { font: 600 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 4px 0 6px; }
+.mk-bl { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px; margin: 0 0 8px; font-size: 12.5px; }
+.mk-bl b { display: block; font-size: 13px; margin-bottom: 2px; }
+.mk-status { display: flex; justify-content: space-between; gap: 10px; padding: 4px 10px; border-top: 1px solid var(--line); background: var(--surface2); font: 400 11.5px var(--f-mono); color: var(--muted); }
+.mk-status .ok { color: var(--ok); }
+.mk-graph { width: 100%; height: 230px; display: block; }
+.mk-graph line { stroke: var(--line); stroke-width: 1.4; }
+.mk-graph circle { fill: var(--muted); }
+.mk-graph circle.cur { fill: var(--accent); }
+.mk-graph circle.un { fill: var(--surface2); stroke: var(--muted); }
+.mk-graph text { font: 400 10px var(--f-mono); fill: var(--ink); text-anchor: middle; }
+.mk-explain { margin-top: 12px; }
+@media (max-width: 900px) { .mk-body { grid-template-columns: minmax(0, 1fr); } .mk-tree { border-right: 0; border-bottom: 1px solid var(--line); } .mk-side { border-left: 0; border-top: 1px solid var(--line); } }
+
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <span class="brand"><i></i><span id="brand">Obsidian Web Brain</span></span>
+  <nav class="nav" id="nav" role="tablist" aria-label="Views"></nav>
+  <span class="grow"></span>
+  <button class="btn sm" id="themeBtn" title="Switch theme">Theme: system</button>
+</header>
+
+<main class="wrap">
+  <div class="head">
+    <div class="eyebrow" id="eyebrow">Architecture</div>
+    <h1 id="title">Obsidian Web Brain</h1>
+    <p class="sub" id="subtitle"></p>
+  </div>
+
+  <!-- View 1: the interactive diagram. Add more <section class="view" id="v-..."> blocks for extra tabs. -->
+  <section class="view" id="v-diagram">
+    <div class="toolbar">
+      <div class="seg" id="layers" role="group" aria-label="Layers"></div>
+      <input class="search" id="q" type="search" placeholder="Find a component…" aria-label="Find a component">
+      <span class="grow"></span>
+      <label class="muted" for="flowSel" style="font-size:13px">Walk through</label>
+      <select class="search" id="flowSel" style="min-width:0"></select>
+      <button class="btn sm" id="prev" aria-label="Previous step">◀</button>
+      <button class="btn sm pri" id="play">▶ Play</button>
+      <button class="btn sm" id="next" aria-label="Next step">▶|</button>
+    </div>
+    <div class="layout">
+      <div>
+        <div class="stage"><svg id="svg" role="img" aria-label="System diagram"></svg></div>
+        <p class="stepcap" id="stepcap" aria-live="polite"></p>
+        <div class="legend">
+          <span><i></i> request / data</span><span><i class="d"></i> async / optional</span>
+          <span>Click a box for details · hover to trace its connections · Esc clears</span>
+        </div>
+      </div>
+      <aside class="pane detail" id="detail" aria-live="polite"></aside>
+    </div>
+  </section>
+
+  <section class="view" id="v-table" hidden>
+    <div class="toolbar"><span class="muted" id="count"></span></div>
+    <div class="tablewrap"><table id="tbl"></table></div>
+  </section>
+  <section class="view" id="v-editor" hidden>
+    <p class="mk-note muted">Mockup of the web UI with sample notes. Use the buttons to see how live preview reveals markdown only where the cursor is, and switch the right-hand panel.</p>
+    <div class="toolbar">
+      <span class="muted" style="font-size:13px">Editor state</span>
+      <div class="seg" id="mkMode" role="group" aria-label="Editor state">
+        <button aria-pressed="true" data-m="render">Cursor elsewhere</button>
+        <button aria-pressed="false" data-m="token">Cursor in **bold**</button>
+        <button aria-pressed="false" data-m="line">Cursor on heading</button>
+        <button aria-pressed="false" data-m="source">Source mode</button>
+      </div>
+      <span class="grow"></span>
+      <div class="seg" id="mkPanel" role="group" aria-label="Right panel">
+        <button aria-pressed="true" data-p="back">Backlinks</button>
+        <button aria-pressed="false" data-p="outline">Outline</button>
+        <button aria-pressed="false" data-p="graph">Local graph</button>
+      </div>
+    </div>
+    <div class="mk-app" aria-label="Editor mockup">
+      <div class="mk-top"><span class="mk-tab">Project Atlas</span><span class="mk-tab" style="opacity:.6">2026-10-31</span><span class="grow"></span><span>⌘O switcher · ⌘P commands</span></div>
+      <div class="mk-body">
+        <nav class="mk-tree" id="mkTree" aria-label="Files"></nav>
+        <div class="mk-doc" id="mkDoc"></div>
+        <aside class="mk-side" id="mkSide"></aside>
+      </div>
+      <div class="mk-status"><span id="mkWords">142 words</span><span class="ok">● git: synced 12s ago</span></div>
+    </div>
+    <div class="callout tip mk-explain" id="mkExplain"></div>
+  </section>
+
+  <section class="view" id="v-mcp" hidden>
+    <div class="toolbar">
+      <div class="seg" id="mcpKind" role="group" aria-label="Tool kind">
+        <button aria-pressed="true" data-k="all">All</button>
+        <button aria-pressed="false" data-k="read">Read</button>
+        <button aria-pressed="false" data-k="write">Write</button>
+      </div>
+      <input class="search" id="mcpQ" type="search" placeholder="Filter tools…" aria-label="Filter tools">
+      <span class="grow"></span><span class="muted" id="mcpCount" style="font-size:13px"></span>
+    </div>
+    <div class="callout" style="margin-bottom:12px">Claude Code is told to run one or two targeted <code>search_notes</code> calls and read only the 1–3 relevant notes, so a large vault never floods its context. Writes are protected by etags: a stale <code>update_note</code> is rejected and the agent re-reads.</div>
+    <div class="tablewrap"><table id="mcpTbl"></table></div>
+  </section>
+</main>
+
+<script>
+/* ============================ 1. EDIT THIS: the content ============================
+   Coordinates live on a virtual canvas (VIEW.w x VIEW.h); the SVG scales to the width available.
+   Nodes are NW x NH (156 x 54). Leave ~40px between nodes so edge labels fit. A node's `zone` is only a grouping label
+   for the table; zones are drawn from their own x/y/w/h. `layer` is optional: nodes/edges with a layer can be toggled. */
+const DATA = {
+  brand: "Obsidian Web Brain",
+  eyebrow: "Open source · self-hosted",
+  title: "Obsidian Web Brain: one markdown vault, every device, every Claude Code session",
+  subtitle: "A self-hosted Obsidian-style vault with a web UI and a built-in MCP server. Click any box for details, hover to trace its connections, or pick a walk-through and press Play.",
+  view: { w: 1180, h: 620 },
+  zones: [
+    { id: "dev", label: "Your devices", x: 20, y: 40, w: 190, h: 560, tone: "" },
+    { id: "net", label: "Private tailnet (WireGuard)", x: 240, y: 40, w: 200, h: 560, tone: "" },
+    { id: "srv", label: "Server: container or VM", x: 470, y: 40, w: 690, h: 420, tone: "accent" },
+    { id: "proc", label: "Node.js process · 127.0.0.1:8090", x: 487, y: 72, w: 440, h: 370, tone: "" },
+    { id: "gh", label: "GitHub (private repo)", x: 760, y: 488, w: 400, h: 112, tone: "" },
+  ],
+  layers: [{ id: "security", label: "Security" }, { id: "setup", label: "Device setup" }],
+  nodes: [
+    { id: "browser", zone: "dev", ico: "UI", label: "Browser", sub: "web UI", x: 37, y: 110,
+      desc: "The web app: live-preview editor, file tree, search, backlinks, outline, properties, graph, quick switcher and command palette.",
+      facts: [["Editor", "CodeMirror 6 + live preview"], ["Autosave", "1 s after typing stops"], ["Updates", "live via server-sent events"]] },
+    { id: "claude", zone: "dev", ico: "CC", label: "Claude Code", sub: "any machine", x: 37, y: 265,
+      desc: "Claude Code uses the vault as long-term memory through the MCP server: it searches for the few notes relevant to the task and saves durable decisions and fixes.",
+      facts: [["Transport", "Streamable HTTP"], ["Auth", "bearer token"], ["Kit", "CLAUDE.md rules, hook, 5 skills"]] },
+    { id: "setup", zone: "dev", ico: "IN", label: "Setup script", sub: "one-line install", x: 37, y: 420, layer: "setup",
+      desc: "An idempotent installer stored inside the vault. It registers the MCP server and installs the CLAUDE.md section, a SessionStart hook (note titles and tags only, never contents) and the /remember, /recall, /log, /create-memory and /load-memory skills.",
+      facts: [["Platforms", "Linux, macOS, WSL"], ["Re-run", "updates in place"], ["Merges", "existing CLAUDE.md and settings"]] },
+    { id: "ts", zone: "net", ico: "TS", label: "Tailscale Serve", sub: "HTTPS :443", x: 262, y: 223,
+      desc: "Terminates HTTPS with a real certificate for brain.<your-tailnet>.ts.net and proxies to the app on localhost. Only devices on your tailnet can reach it; nothing listens on the LAN.",
+      facts: [["Certificate", "Let's Encrypt via Tailscale"], ["Reachable from", "your tailnet only"], ["Upstream", "http://127.0.0.1:8090"]] },
+    { id: "ui", zone: "proc", ico: "WB", label: "Web UI", sub: "static SPA", x: 505, y: 95,
+      desc: "The built Vite app (plain TypeScript, no framework). Mermaid and KaTeX chunks load only when a note needs them.",
+      facts: [["CSP", "default-src 'self'"], ["Size", "~1 MB main chunk"]] },
+    { id: "api", zone: "proc", ico: "AP", label: "REST API", sub: "/api/v1/*", x: 505, y: 180,
+      desc: "Everything the UI does goes through this versioned API, so other clients (a future phone app) can reuse it with the same token.",
+      facts: [["Notes", "read, write (etag), rename, delete"], ["Index", "search, backlinks, tags, graph"], ["Git", "status, sync, conflicts"]] },
+    { id: "mcp", zone: "proc", ico: "MC", label: "MCP server", sub: "/mcp · 25 tools", x: 505, y: 265,
+      desc: "A small hand-written JSON-RPC endpoint (stateless Streamable HTTP), verified against the official MCP TypeScript SDK client. Tools cover search, read, append, edit, rename, backlinks, tags, properties and daily notes.",
+      facts: [["Protocol", "2024-11-05 … 2025-11-25"], ["Errors", "tool errors as isError results"]] },
+    { id: "sse", zone: "proc", ico: "EV", label: "Live events", sub: "SSE stream", x: 505, y: 350,
+      desc: "Pushes change, rename and delete events plus git status to every open tab, so an edit made by Claude appears in your browser within a second.",
+      facts: [["Endpoint", "/api/v1/events"], ["Reconnect", "automatic"]] },
+    { id: "auth", zone: "proc", ico: "AU", label: "Auth & guards", sub: "token · CSRF", x: 745, y: 95, layer: "security",
+      desc: "Password (scrypt) for the UI with an HMAC-signed cookie (HttpOnly, Secure, SameSite=Strict); bearer token for API/MCP clients; custom-header CSRF check; origin check; login throttling; one-time setup code on first run.",
+      facts: [["Cookie", "HttpOnly · Secure · Strict"], ["Token", "rotatable in Settings"]] },
+    { id: "index", zone: "proc", ico: "IX", label: "Vault service", sub: "in-memory index", x: 745, y: 180,
+      desc: "Parses every note into links, embeds, tags, headings, blocks, tasks and frontmatter. Resolves links the Obsidian way, keeps backlinks, rewrites links on rename and rejects stale writes.",
+      facts: [["Writes", "atomic temp-file + rename"], ["Stale writes", "409 with a clear message"], ["Delete", "soft, to .trash/"]] },
+    { id: "git", zone: "proc", ico: "GT", label: "Git sync", sub: "commit · push", x: 745, y: 350,
+      desc: "Commits every save, pushes on a short debounce, fetches every few minutes. Merges are checked with git merge-tree first, so a conflict never puts markers into your notes; you resolve it per file in the UI.",
+      facts: [["Commit", "~3 s after a save"], ["Push", "~45 s after the last commit"], ["Auth", "deploy key generated in the UI"]] },
+    { id: "files", zone: "srv", ico: "MD", label: "Markdown files", sub: "plain .md files", x: 985, y: 180,
+      desc: "The vault is just a folder: notes, attachments and folders, readable by any editor and openable in Obsidian. A file watcher picks up edits made outside the app.",
+      facts: [["Format", "Markdown + YAML frontmatter"], ["Links", "[[wikilinks]] and markdown links"]] },
+    { id: "config", zone: "srv", ico: "CF", label: "Config & secrets", sub: "mode 0600", x: 985, y: 95, layer: "security",
+      desc: "Password hash, session secret, MCP token and the git deploy key live in the data directory with mode 0600, never inside the vault or the git repo.",
+      facts: [["Mode", "0600"], ["Location", "data dir, not vault"]] },
+    { id: "repo", zone: "gh", ico: "GH", label: "Private repo", sub: "offsite history", x: 985, y: 520,
+      desc: "Offsite backup with full history. You can browse diffs or restore old versions on GitHub, and edits made there flow back into the vault on the next sync.",
+      facts: [["Host key", "checked against GitHub's fingerprint"], ["Ignored", ".trash/"]] },
+  ],
+  edges: [
+    { from: "browser", to: "ts", label: "HTTPS" },
+    { from: "claude", to: "ts", label: "MCP / HTTPS" },
+    { from: "setup", to: "ts", label: "installer", style: "dashed", layer: "setup" },
+    { from: "ts", to: "ui", label: "proxy" },
+    { from: "ts", to: "api", label: "/api/v1" },
+    { from: "ts", to: "mcp", label: "/mcp" },
+    { from: "sse", to: "ts", label: "events", style: "dashed" },
+    { from: "api", to: "index", label: "calls" },
+    { from: "mcp", to: "index", label: "tools" },
+    { from: "index", to: "files", label: "read / write" },
+    { from: "index", to: "sse", label: "changes", style: "dashed", via: [[703, 222], [703, 377]] },
+    { from: "index", to: "git", label: "changed paths", style: "dashed" },
+    { from: "git", to: "files", label: "commit / merge" },
+    { from: "git", to: "repo", label: "SSH push / pull", both: true },
+    { from: "api", to: "auth", label: "checks", layer: "security" },
+    { from: "auth", to: "config", label: "hash · token", layer: "security" },
+  ],
+  flows: [
+    { name: "Edit a note in the browser", steps: [
+      [0, "You type in the live-preview editor; one second after you stop, it saves the note together with the version (etag) it loaded."],
+      [4, "Tailscale Serve forwards the HTTPS request to the app on 127.0.0.1:8090."],
+      [7, "The vault service compares etags: if the note changed elsewhere since you loaded it, the save is rejected with a clear message and you choose reload or overwrite."],
+      [9, "Otherwise the file is written atomically and the index re-parses its links, tags and headings."],
+      [10, "A change event goes out so every other open tab and device updates."],
+      [11, "The path is queued for git: a commit a few seconds later, a push about 45 s after the last change."] ] },
+    { name: "Claude Code calls an MCP tool", steps: [
+      [1, "Claude Code sends a JSON-RPC tools/call (for example search_notes \"deploy tag:#docker\") with its bearer token."],
+      [5, "Tailscale Serve forwards it to /mcp; a missing or wrong token gets 401."],
+      [8, "The tool runs against the in-memory index: one or two targeted searches, then only the relevant notes are read, never the whole vault."],
+      [9, "A write tool such as append_to_note or edit_note updates the file, with the same stale-write protection as the UI."],
+      [10, "Your open browser tab shows Claude's edit live."] ] },
+    { name: "Sync with GitHub (with a conflict)", steps: [
+      [11, "Every save is committed locally, so history is complete even offline."],
+      [13, "Sync fetches the remote; git merge-tree checks the merge without touching your working files."],
+      [12, "A clean merge is applied and the index rescans. A conflict is stored instead: nothing is overwritten and no conflict markers appear in notes."],
+      [6, "The status bar shows the conflict; the resolver lets you keep the vault version, the remote version, or an edited merge for each file."],
+      [13, "The resolved merge is committed and pushed."] ] },
+    { name: "Set up a new device", steps: [
+      [2, "On the new machine you download the installer from the vault over the tailnet, using your token."],
+      [4, "It is served by the API from the vault file Setup/install-brain-client.sh."],
+      [1, "It registers the brain MCP server and installs the CLAUDE.md rules, the session hook and the skills; Claude Code connects on its next start."] ] },
+  ],
+};
+/* ============================ 2. ENGINE (usually leave as is) ============================ */
+const NW = 156, NH = 54, $ = (s, r = document) => r.querySelector(s);
+const byId = Object.fromEntries(DATA.nodes.map((n) => [n.id, n]));
+const svg = $("#svg"), NS = "http://www.w3.org/2000/svg";
+const state = { sel: null, hidden: new Set(), q: "", flow: 0, step: -1, timer: null };
+function mk(tag, attrs, parent, text) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; if (parent) parent.appendChild(e); return e; }
+function h(tag, attrs, ...kids) { const e = document.createElement(tag); for (const k in (attrs || {})) { if (k === "class") e.className = attrs[k]; else if (k.startsWith("on")) e[k] = attrs[k]; else e.setAttribute(k, attrs[k]); } for (const c of kids.flat()) if (c != null) e.append(c.nodeType ? c : document.createTextNode(c)); return e; }
+
+function edgeGeom(e) {
+  const a = byId[e.from], b = byId[e.to];
+  const edge = (n, tx, ty) => { // point where the line from the node centre toward (tx,ty) leaves the box
+    const px = n.x + NW / 2, py = n.y + NH / 2, vx = tx - px, vy = ty - py;
+    const t = Math.min((NW / 2 + 3) / (Math.abs(vx) || 1e-6), (NH / 2 + 3) / (Math.abs(vy) || 1e-6));
+    return [px + vx * t, py + vy * t];
+  };
+  const ax = a.x + NW / 2, ay = a.y + NH / 2, bx = b.x + NW / 2, by = b.y + NH / 2;
+  if (e.via && e.via.length) { // waypoints [[x,y],...]: route around nodes instead of cutting across them
+    const first = e.via[0], last = e.via[e.via.length - 1];
+    const [x1, y1] = edge(a, first[0], first[1]), [x2, y2] = edge(b, last[0], last[1]);
+    const pts = [[x1, y1], ...e.via, [x2, y2]];
+    let best = 0, bl = -1; for (let i = 0; i < pts.length - 1; i++) { const l = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); if (l > bl) { bl = l; best = i; } }
+    return { d: "M" + pts.map((p) => p.join(",")).join(" L"), lx: (pts[best][0] + pts[best + 1][0]) / 2, ly: (pts[best][1] + pts[best + 1][1]) / 2 - 5 };
+  }
+  const reverse = DATA.edges.some((o) => o.from === e.to && o.to === e.from);
+  const bend = e.bend ?? (reverse ? 16 : 0);
+  const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1;
+  const cx = (ax + bx) / 2 + (-dy / len) * bend * 2, cy = (ay + by) / 2 + (dx / len) * bend * 2;
+  const [x1, y1] = edge(a, cx, cy), [x2, y2] = edge(b, cx, cy);
+  const d = bend ? `M${x1},${y1} Q${cx},${cy} ${x2},${y2}` : `M${x1},${y1} L${x2},${y2}`;
+  const lx = bend ? 0.25 * x1 + 0.5 * cx + 0.25 * x2 : (x1 + x2) / 2, ly = (bend ? 0.25 * y1 + 0.5 * cy + 0.25 * y2 : (y1 + y2) / 2) - 5;
+  return { d, lx, ly };
+}
+
+function draw() {
+  svg.replaceChildren();
+  svg.setAttribute("viewBox", `0 0 ${DATA.view.w} ${DATA.view.h}`);
+  svg.style.setProperty("--minw", Math.min(DATA.view.w, 1100) * 0.9 + "px"); // phones scroll the diagram inside its frame instead of shrinking the text
+  const defs = mk("defs", {}, svg);
+  for (const [id, cls] of [["ar", "arrow"], ["arh", "arrow hi"]]) {
+    const m = mk("marker", { id, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: "auto-start-reverse" }, defs);
+    mk("path", { d: "M0,0 L10,5 L0,10 z", class: cls, style: `fill:var(${id === "ar" ? "--muted" : "--accent"})` }, m);
+  }
+  for (const z of DATA.zones) {
+    const g = mk("g", { class: "zone" + (z.tone ? " t-" + z.tone : "") }, svg);
+    mk("rect", { x: z.x, y: z.y, width: z.w, height: z.h, rx: 6 }, g);
+    mk("text", { x: z.x + 12, y: z.y + 20 }, g, z.label);
+  }
+  const edgeEls = DATA.edges.map((e, i) => {
+    const g = mk("g", { class: "edge" + (e.style === "dashed" ? " dashed" : ""), "data-i": i }, svg);
+    const gm = edgeGeom(e);
+    const p = mk("path", { d: gm.d, "marker-end": "url(#ar)" }, g);
+    if (e.both) p.setAttribute("marker-start", "url(#ar)");
+    if (e.label) mk("text", { x: gm.lx, y: gm.ly }, g, e.label);
+    return g;
+  });
+  const nodeEls = DATA.nodes.map((n) => {
+    const g = mk("g", { class: "node", tabindex: 0, role: "button", "data-id": n.id, "aria-label": `${n.label}: ${n.sub || ""}` }, svg);
+    mk("rect", { class: "box", x: n.x, y: n.y, width: NW, height: NH, rx: 5 }, g);
+    mk("rect", { class: "ico", x: n.x + 9, y: n.y + 12, width: 30, height: 30, rx: 4 }, g);
+    mk("text", { class: "i", x: n.x + 24, y: n.y + 31 }, g, n.ico || n.label.slice(0, 2).toUpperCase());
+    mk("text", { class: "n", x: n.x + 48, y: n.y + 24 }, g, n.label);
+    mk("text", { class: "s", x: n.x + 48, y: n.y + 40 }, g, n.sub || "");
+    g.addEventListener("click", (ev) => { ev.stopPropagation(); select(n.id); });
+    g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(n.id); } });
+    g.addEventListener("mouseenter", () => focusOn(n.id)); g.addEventListener("mouseleave", () => focusOn(state.sel));
+    g.addEventListener("focus", () => focusOn(n.id)); g.addEventListener("blur", () => focusOn(state.sel));
+    return g;
+  });
+  svg.addEventListener("click", () => select(null));
+  draw.edgeEls = edgeEls; draw.nodeEls = nodeEls;
+  applyVisibility();
+}
+
+function visibleNode(n) { return (!n.layer || !state.hidden.has(n.layer)) && (!state.q || (n.label + " " + (n.sub || "") + " " + (n.desc || "")).toLowerCase().includes(state.q)); }
+function applyVisibility() {
+  DATA.nodes.forEach((n, i) => { const on = visibleNode(n) || (state.q && false); draw.nodeEls[i].style.display = (!n.layer || !state.hidden.has(n.layer)) ? "" : "none"; draw.nodeEls[i].style.opacity = on ? "" : ".25"; });
+  DATA.edges.forEach((e, i) => { const hide = (e.layer && state.hidden.has(e.layer)) || (byId[e.from].layer && state.hidden.has(byId[e.from].layer)) || (byId[e.to].layer && state.hidden.has(byId[e.to].layer)); draw.edgeEls[i].style.display = hide ? "none" : ""; });
+}
+function focusOn(id) {
+  const rel = new Set(id ? [id] : []);
+  DATA.edges.forEach((e, i) => { const hit = id && (e.from === id || e.to === id); const el = draw.edgeEls[i]; el.classList.toggle("hi", !!hit); el.querySelector("path").setAttribute("marker-end", hit ? "url(#arh)" : "url(#ar)"); if (hit) { rel.add(e.from); rel.add(e.to); } });
+  DATA.nodes.forEach((n, i) => draw.nodeEls[i].classList.toggle("rel", rel.has(n.id)));
+  svg.classList.toggle("focus", !!id);
+}
+function select(id) {
+  state.sel = id; stopFlow();
+  DATA.nodes.forEach((n, i) => draw.nodeEls[i].classList.toggle("sel", n.id === id));
+  focusOn(id); renderDetail();
+}
+function renderDetail() {
+  const box = $("#detail"), n = byId[state.sel];
+  if (!n) { box.replaceChildren(h("div", { class: "eyebrow" }, "Details"), h("h2", {}, DATA.title), h("p", { class: "muted" }, "Select a component to see what it does, its settings and what it talks to."),
+    h("div", { class: "tiles" }, h("div", { class: "tile" }, h("div", { class: "k" }, "Components"), h("div", { class: "v" }, DATA.nodes.length)), h("div", { class: "tile" }, h("div", { class: "k" }, "Connections"), h("div", { class: "v" }, DATA.edges.length)))); return; }
+  const out = DATA.edges.filter((e) => e.from === n.id), inc = DATA.edges.filter((e) => e.to === n.id);
+  const link = (otherId, e) => h("li", {}, h("button", { onclick: () => select(otherId) }, h("span", { class: "lbl" }, e.label || ""), byId[otherId].label));
+  box.replaceChildren(...[
+    h("div", { class: "eyebrow" }, (DATA.zones.find((z) => z.id === n.zone) || {}).label || "Component"),
+    h("h2", {}, n.label), n.sub ? h("div", { class: "mono muted", style: "font-size:12.5px" }, n.sub) : null,
+    h("p", {}, n.desc || ""),
+    n.facts && n.facts.length ? h("dl", {}, n.facts.flatMap(([k, v]) => [h("dt", {}, k), h("dd", {}, v)])) : null,
+    out.length ? h("div", {}, h("div", { class: "eyebrow" }, "Talks to"), h("ul", { class: "links" }, out.map((e) => link(e.to, e)))) : null,
+    inc.length ? h("div", { style: "margin-top:12px" }, h("div", { class: "eyebrow" }, "Called by"), h("ul", { class: "links" }, inc.map((e) => link(e.from, e)))) : null].filter(Boolean));
+}
+
+/* walk-through */
+function stopFlow() { clearInterval(state.timer); state.timer = null; $("#play").textContent = "▶ Play"; }
+function showStep() {
+  const f = DATA.flows[state.flow]; if (!f) return;
+  draw.edgeEls.forEach((el) => el.classList.remove("step"));
+  if (state.step < 0) { $("#stepcap").textContent = f.steps.length + " steps. Press Play or use ◀ ▶|."; return; }
+  const [ei, text] = f.steps[state.step];
+  draw.edgeEls[ei].classList.add("step");
+  $("#stepcap").textContent = `Step ${state.step + 1} of ${f.steps.length}: ${text}`;
+  const e = DATA.edges[ei]; state.sel = null; focusOn(null); svg.classList.add("focus");
+  DATA.nodes.forEach((n, i) => draw.nodeEls[i].classList.toggle("rel", n.id === e.from || n.id === e.to));
+}
+function stepBy(d) { const f = DATA.flows[state.flow]; if (!f) return; state.step = Math.min(f.steps.length - 1, Math.max(-1, state.step + d)); showStep(); }
+function play() {
+  if (state.timer) { stopFlow(); return; }
+  const f = DATA.flows[state.flow]; if (!f) return;
+  state.step = -1; $("#play").textContent = "❚❚ Pause";
+  const tick = () => { if (state.step >= f.steps.length - 1) { stopFlow(); return; } stepBy(1); };
+  tick(); state.timer = setInterval(tick, 1800);
+}
+
+/* table view */
+function drawTable() {
+  const t = $("#tbl"); t.replaceChildren(h("thead", {}, h("tr", {}, ["Component", "Where", "What it does", "Talks to"].map((c) => h("th", {}, c)))),
+    h("tbody", {}, DATA.nodes.map((n) => h("tr", {}, h("td", {}, h("b", {}, n.label), n.sub ? h("div", { class: "mono muted", style: "font-size:12px" }, n.sub) : null),
+      h("td", {}, (DATA.zones.find((z) => z.id === n.zone) || {}).label || ""), h("td", {}, n.desc || ""),
+      h("td", {}, DATA.edges.filter((e) => e.from === n.id).map((e) => byId[e.to].label).join(", ") || "-")))));
+  $("#count").textContent = DATA.nodes.length + " components, " + DATA.edges.length + " connections";
+}
+
+/* tabs, layers, search, theme, height reporting */
+const VIEWS = [["diagram", "Architecture"], ["editor", "Editor"], ["mcp", "MCP tools"], ["table", "Components"]];
+function showView(id) { for (const [v] of VIEWS) $("#v-" + v).hidden = v !== id; document.querySelectorAll("#nav button").forEach((b) => b.setAttribute("aria-selected", b.dataset.v === id)); reportHeight(); }
+function setup() {
+  document.title = DATA.title; $("#brand").textContent = DATA.brand; $("#eyebrow").textContent = DATA.eyebrow; $("#title").textContent = DATA.title; $("#subtitle").textContent = DATA.subtitle;
+  $("#nav").replaceChildren(...VIEWS.map(([v, l]) => h("button", { role: "tab", "data-v": v, onclick: () => showView(v) }, l)));
+  $("#layers").replaceChildren(...DATA.layers.map((l) => h("button", { "aria-pressed": "true", onclick: (ev) => { const b = ev.currentTarget, on = b.getAttribute("aria-pressed") !== "true"; b.setAttribute("aria-pressed", on); on ? state.hidden.delete(l.id) : state.hidden.add(l.id); applyVisibility(); } }, l.label)));
+  if (!DATA.layers.length) $("#layers").remove();
+  $("#flowSel").replaceChildren(...DATA.flows.map((f, i) => h("option", { value: i }, f.name)));
+  if (!DATA.flows.length) ["#flowSel", "#prev", "#play", "#next", "label[for=flowSel]"].forEach((s) => $(s).remove());
+  $("#flowSel").onchange = (e) => { stopFlow(); state.flow = +e.target.value; state.step = -1; showStep(); };
+  $("#prev").onclick = () => { stopFlow(); stepBy(-1); }; $("#next").onclick = () => { stopFlow(); stepBy(1); }; $("#play").onclick = play;
+  $("#q").oninput = (e) => { state.q = e.target.value.trim().toLowerCase(); applyVisibility(); };
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { stopFlow(); state.step = -1; select(null); showStep(); } });
+  draw(); drawTable(); renderDetail(); showStep(); setupExtra(); showView("diagram");
+}
+
+
+/* ---------------- extra tabs: editor mockup and MCP tools ---------------- */
+const MK = { mode: "render", panel: "back", file: "Projects/Project Atlas.md" };
+const MK_FILES = { "Projects": ["Project Atlas.md", "Payment service.md"], "Knowledge": ["Deploy checklist.md", "Docker.md"], "": ["2026-10-31.md", "Index.md"] };
+function mkTree() {
+  const box = $("#mkTree"); box.replaceChildren();
+  for (const [dir, files] of Object.entries(MK_FILES)) {
+    if (dir) box.append(h("div", { class: "d" }, "▾ " + dir));
+    for (const f of files) {
+      const path = (dir ? dir + "/" : "") + f;
+      box.append(h("button", { class: "f" + (dir ? " ind" : ""), "aria-current": String(path === MK.file), onclick: () => { MK.file = path; mkTree(); mkExplain("Opening another file is a tab change in the real app; this mockup keeps showing Project Atlas so the live-preview states stay comparable."); } }, f.replace(/\.md$/, "")));
+    }
+  }
+}
+function mkDoc() {
+  const m = MK.mode, src = m === "source", doc = $("#mkDoc");
+  const mark = (t) => h("span", { class: "mk-mark" }, t);
+  const L = (cls, ...k) => h("p", { class: "mk-line" + (cls ? " " + cls : "") }, ...k);
+  const heading = src || m === "line" ? L(m === "line" ? "act" : "", mark("## "), h("span", { class: "mk-h" }, "Goals")) : L("", h("span", { class: "mk-h" }, "Goals"));
+  const boldOn = m === "token";
+  const line1 = src
+    ? L("mk-src", "Ship the ", "**MVP**", " by Friday, see ", "[[Deploy checklist]]", " and ", "#release/q4")
+    : L(boldOn ? "act" : "", "Ship the ", boldOn ? mark("**") : null, h("b", {}, "MVP"), boldOn ? mark("**") : null, " by Friday, see ", h("span", { class: "mk-link" }, "Deploy checklist"), " and ", h("span", { class: "mk-tag" }, "#release/q4"));
+  const line2 = src ? L("mk-src", "Owner notes live in [[Payment service#Risks|risks]]; ==freeze on Thursday==.")
+    : L("", "Owner notes live in ", h("span", { class: "mk-link" }, "risks"), "; ", h("span", { class: "mk-hl" }, "freeze on Thursday"), ".");
+  const tasks = src ? [L("mk-src", "- [x] Write the migration"), L("mk-src", "- [ ] Load test with `k6`")]
+    : [L("", h("span", { class: "mk-box on" }), h("span", { class: "mk-done" }, "Write the migration")), L("", h("span", { class: "mk-box" }), "Load test with ", h("span", { class: "mk-code" }, "k6"))];
+  const callout = src ? [L("mk-src", "> [!tip] Rollback"), L("mk-src", "> Keep the previous image tagged.")]
+    : [h("div", { class: "mk-callout" }, h("b", {}, "Rollback"), "Keep the previous image tagged.")];
+  const missing = src ? L("mk-src", "Open question: [[Load budget]]") : L("", "Open question: ", h("span", { class: "mk-link un", title: "Note does not exist yet: clicking creates it" }, "Load budget"));
+  doc.replaceChildren(h("h3", {}, "Project Atlas"), heading, line1, line2, L("", ""), ...tasks, L("", ""), ...callout, missing);
+  const msg = {
+    render: "Nothing is revealed: markdown renders inline, links and tags are clickable, tasks are real checkboxes and the callout is a rendered block. Clicking a rendered link follows it, just like Obsidian.",
+    token: "Cursor inside the bold word: only that token shows its ** markers. The link and tag on the same line stay rendered, because reveal is per inline token, not per line.",
+    line: "Cursor on the heading line: the ## marker appears because headings, tasks and rules reveal per line. Callouts, code fences and math reveal as a whole block.",
+    source: "Source mode shows plain markdown in the same editor; toggle with Ctrl/Cmd+E. Saving is identical in both modes.",
+  };
+  mkExplain(msg[m]);
+}
+function mkExplain(t) { $("#mkExplain").textContent = t; }
+function mkSide() {
+  const s = $("#mkSide"); s.replaceChildren();
+  if (MK.panel === "back") {
+    s.append(h("div", { class: "k" }, "Linked mentions (2)"),
+      h("div", { class: "mk-bl" }, h("b", {}, "2026-10-31"), "Standup: ", h("span", { class: "mk-link" }, "Project Atlas"), " is on track."),
+      h("div", { class: "mk-bl" }, h("b", {}, "Index"), "Active: ", h("span", { class: "mk-link" }, "Project Atlas")),
+      h("div", { class: "k" }, "Unresolved"), h("div", { class: "mk-bl" }, "Load budget ", h("span", { class: "pill warn" }, "click to create")));
+  } else if (MK.panel === "outline") {
+    s.append(h("div", { class: "k" }, "Outline"), ...["Project Atlas", "  Goals", "  Rollback", "  Open questions"].map((t) => h("div", { class: "mk-bl", style: "padding-left:" + (t.startsWith("  ") ? 18 : 8) + "px" }, t.trim())));
+  } else {
+    const nodes = [["Project Atlas", 115, 110, "cur"], ["Deploy checklist", 45, 45, ""], ["Payment service", 190, 50, ""], ["2026-10-31", 40, 175, ""], ["Index", 120, 200, ""], ["Load budget", 195, 165, "un"]];
+    const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svgEl.setAttribute("viewBox", "0 0 230 230"); svgEl.setAttribute("class", "mk-graph"); svgEl.setAttribute("role", "img"); svgEl.setAttribute("aria-label", "Local graph of Project Atlas");
+    for (const n of nodes.slice(1)) mk("line", { x1: 115, y1: 110, x2: n[1], y2: n[2] }, svgEl);
+    for (const [label, x, y, cls] of nodes) { mk("circle", { cx: x, cy: y, r: cls === "cur" ? 8 : 6, class: cls }, svgEl); mk("text", { x, y: y + 19 }, svgEl, label); }
+    s.append(h("div", { class: "k" }, "Local graph · depth 1"), svgEl, h("p", { class: "muted", style: "font-size:12px" }, "The full graph view uses d3-force on a canvas, with filters (search syntax), tags, attachments, orphans and adjustable forces."));
+  }
+}
+function segInit(sel, key, attr, after) {
+  $(sel).querySelectorAll("button").forEach((b) => b.onclick = () => { $(sel).querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); MK[key] = b.dataset[attr]; after(); reportHeight(); });
+}
+const TOOLS = [
+  ["search_notes", "read", "Full-text search with Obsidian operators: phrases, OR, -exclude, file:, path:, tag:, line:(), section:(), [prop:value], /regex/."],
+  ["read_note", "read", "Read one note's content with its etag, tags and frontmatter. Accepts a path or a note name."],
+  ["list_notes", "read", "List note paths in the vault or a folder (paths only, no contents)."],
+  ["recent_notes", "read", "Most recently modified notes."],
+  ["get_backlinks", "read", "Notes linking to a note, with the linking line."],
+  ["get_outgoing_links", "read", "Links from a note and where each resolves (or null if missing)."],
+  ["get_outline", "read", "Headings of a note: read the right section of a long note."],
+  ["list_tags", "read", "All tags with counts (nested tags count toward parents)."],
+  ["get_notes_by_tag", "read", "Notes carrying a tag, including nested child tags."],
+  ["get_properties", "read", "All frontmatter properties with inferred types, or one note's frontmatter."],
+  ["list_unresolved_links", "read", "Links pointing at notes that don't exist yet."],
+  ["list_orphans", "read", "Notes no other note links to."],
+  ["list_deadends", "read", "Notes with no outgoing links to existing notes."],
+  ["list_templates", "read", "Templates available to create_note."],
+  ["create_note", "write", "Create a note (fails if it exists), optionally from a template."],
+  ["append_to_note", "write", "Append text to a note, creating it if missing. Safe for concurrent use."],
+  ["prepend_to_note", "write", "Insert text at the top of a note, after its frontmatter."],
+  ["edit_note", "write", "Replace an exact, unique substring: the preferred targeted edit."],
+  ["replace_lines", "write", "Replace a line range, with an out-of-range guard."],
+  ["update_note", "write", "Replace the whole note. Requires the etag from read_note; stale writes are rejected."],
+  ["rename_note", "write", "Rename or move a note or folder; every link pointing at it is rewritten."],
+  ["delete_note", "write", "Soft delete to .trash (restorable). Only when the user asks."],
+  ["set_property", "write", "Set a frontmatter property (string, number, boolean or list)."],
+  ["remove_property", "write", "Remove a frontmatter property."],
+  ["daily_note", "write", "Get or create today's daily note, optionally appending a session summary."],
+];
+const MCPF = { kind: "all", q: "" };
+function drawMcp() {
+  const rows = TOOLS.filter(([n, k, d]) => (MCPF.kind === "all" || k === MCPF.kind) && (n + " " + d).toLowerCase().includes(MCPF.q));
+  $("#mcpTbl").replaceChildren(h("thead", {}, h("tr", {}, h("th", {}, "Tool"), h("th", {}, "Kind"), h("th", {}, "What it does"))),
+    h("tbody", {}, rows.map(([n, k, d]) => h("tr", {}, h("td", {}, h("code", {}, n)), h("td", {}, h("span", { class: "pill " + (k === "read" ? "info" : "acc") }, k)), h("td", {}, d)))));
+  $("#mcpCount").textContent = rows.length + " of " + TOOLS.length + " tools";
+  reportHeight();
+}
+function setupExtra() {
+  mkTree(); mkDoc(); mkSide();
+  segInit("#mkMode", "mode", "m", mkDoc); segInit("#mkPanel", "panel", "p", mkSide);
+  $("#mcpKind").querySelectorAll("button").forEach((b) => b.onclick = () => { $("#mcpKind").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); MCPF.kind = b.dataset.k; drawMcp(); });
+  $("#mcpQ").oninput = (e) => { MCPF.q = e.target.value.trim().toLowerCase(); drawMcp(); };
+  drawMcp();
+}
+
+/* Theme switching, plus an optional height/theme message protocol for embedding in an iframe. Works standalone. */
+const root = document.documentElement; let themeMode = 0; // 0 system, 1 light, 2 dark
+function applyTheme(t) { t ? root.setAttribute("data-theme", t) : root.removeAttribute("data-theme"); $("#themeBtn").textContent = "Theme: " + (themeMode === 0 ? "system" : themeMode === 1 ? "light" : "dark"); }
+const fromUrl = new URLSearchParams(location.search).get("theme");
+if (fromUrl === "dark" || fromUrl === "light") { themeMode = fromUrl === "dark" ? 2 : 1; }
+addEventListener("message", (e) => { if (e.source === parent && e.data && e.data.type === "hub:theme") { themeMode = e.data.theme === "dark" ? 2 : 1; applyTheme(e.data.theme); } });
+$("#themeBtn").onclick = () => { themeMode = (themeMode + 1) % 3; applyTheme(themeMode === 0 ? null : themeMode === 1 ? "light" : "dark"); };
+function reportHeight() { try { parent.postMessage({ type: "hub:height", px: Math.ceil(Math.max(root.scrollHeight, document.body.scrollHeight)) }, "*"); } catch (_) {} }
+if (window.ResizeObserver) new ResizeObserver(reportHeight).observe(root);
+addEventListener("load", reportHeight);
+
+setup(); applyTheme(themeMode === 0 ? null : themeMode === 1 ? "light" : "dark");
+</script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+[Unit]
+Description=Brain - markdown vault web UI and shared-memory MCP
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=brain
+Group=brain
+Environment=NODE_ENV=production
+Environment=BRAIN_DATA_DIR=/var/lib/brain
+Environment=BRAIN_VAULT_DIR=/var/lib/brain/vault
+Environment=BRAIN_WEB_DIR=/opt/brain/web
+Environment=BRAIN_HOST=127.0.0.1
+Environment=BRAIN_PORT=8090
+Environment=NODE_OPTIONS=--max-old-space-size=256
+ExecStart=/opt/node/bin/node /opt/brain/server/main.mjs
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+# Hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/brain
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+UMask=0077
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
