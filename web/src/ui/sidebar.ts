@@ -325,58 +325,64 @@ export class RightPanel {
     void this.refresh();
   }
 
+  private seq = 0;
+
+  /** Renders into a fresh container and swaps it in only if no newer refresh started meanwhile. */
   async refresh() {
     const path = this.path;
-    clear(this.body);
+    const seq = ++this.seq;
+    const out = h("div");
     if (!path || !isMd(path)) {
-      this.body.append(h("p", { class: "muted panel-pad" }, "No note open."));
-      return;
+      out.append(h("p", { class: "muted panel-pad" }, "No note open."));
+    } else {
+      try {
+        if (this.tab === "backlinks") await this.backlinks(path, out);
+        else if (this.tab === "outgoing") await this.outgoing(path, out);
+        else if (this.tab === "outline") await this.outline(path, out);
+        else await this.properties(path, out);
+      } catch (e) {
+        out.append(h("p", { class: "muted panel-pad" }, (e as Error).message));
+      }
     }
-    try {
-      if (this.tab === "backlinks") await this.backlinks(path);
-      else if (this.tab === "outgoing") await this.outgoing(path);
-      else if (this.tab === "outline") await this.outline(path);
-      else await this.properties(path);
-    } catch (e) {
-      this.body.append(h("p", { class: "muted panel-pad" }, (e as Error).message));
-    }
+    if (seq !== this.seq) return; // a newer refresh owns the panel now
+    this.body.replaceChildren(...out.childNodes);
   }
 
-  private async backlinks(path: string) {
+  private async backlinks(path: string, el: HTMLElement) {
     const bl = await api.backlinks(path);
     const bySource = new Map<string, typeof bl>();
     for (const b of bl) (bySource.get(b.source) ?? bySource.set(b.source, []).get(b.source)!).push(b);
-    this.body.append(h("div", { class: "right-heading" }, `Linked mentions (${bySource.size})`));
-    if (!bl.length) this.body.append(h("p", { class: "muted panel-pad" }, "No backlinks found."));
+    el.append(h("div", { class: "right-heading" }, `Linked mentions (${bySource.size})`));
+    if (!bl.length) el.append(h("p", { class: "muted panel-pad" }, "No backlinks found."));
     for (const [src, items] of bySource) {
       const g = h("div", { class: "backlink-group" }, h("div", { class: "backlink-title", onclick: (e: MouseEvent) => this.open(src, null, e.ctrlKey || e.metaKey) }, stem(src), h("span", { class: "count" }, String(items.length))));
       for (const it of items) g.append(h("div", { class: "backlink-context", onclick: (e: MouseEvent) => this.open(src, it.line, e.ctrlKey || e.metaKey) }, it.frontmatterKey ? `${it.frontmatterKey}: ` : "", it.context.trim().slice(0, 240)));
-      this.body.append(g);
+      el.append(g);
     }
   }
 
-  private async outgoing(path: string) {
+  private async outgoing(path: string, el: HTMLElement) {
     const out = await api.outgoing(path);
     const resolved = out.filter((o) => o.resolved && o.resolved !== path);
     const unresolved = out.filter((o) => !o.resolved);
     const uniq = <T,>(arr: T[], key: (x: T) => string) => [...new Map(arr.map((x) => [key(x), x])).values()];
-    this.body.append(h("div", { class: "right-heading" }, `Links (${uniq(resolved, (o) => o.resolved!).length})`));
-    for (const o of uniq(resolved, (o) => o.resolved!)) this.body.append(h("div", { class: "link-row", onclick: (e: MouseEvent) => this.open(o.resolved!, null, e.ctrlKey || e.metaKey) }, isMd(o.resolved!) ? stem(o.resolved!) : basename(o.resolved!)));
-    this.body.append(h("div", { class: "right-heading" }, `Unresolved (${uniq(unresolved, (o) => o.link).length})`));
-    for (const o of uniq(unresolved, (o) => o.link)) this.body.append(h("div", { class: "link-row is-unresolved", title: "Click to create", onclick: () => this.onCreate(o.link, path) }, o.link));
+    el.append(h("div", { class: "right-heading" }, `Links (${uniq(resolved, (o) => o.resolved!).length})`));
+    for (const o of uniq(resolved, (o) => o.resolved!)) el.append(h("div", { class: "link-row", onclick: (e: MouseEvent) => this.open(o.resolved!, null, e.ctrlKey || e.metaKey) }, isMd(o.resolved!) ? stem(o.resolved!) : basename(o.resolved!)));
+    el.append(h("div", { class: "right-heading" }, `Unresolved (${uniq(unresolved, (o) => o.link).length})`));
+    for (const o of uniq(unresolved, (o) => o.link)) el.append(h("div", { class: "link-row is-unresolved", title: "Click to create", onclick: () => this.onCreate(o.link, path) }, o.link));
   }
 
-  private async outline(path: string) {
+  private async outline(path: string, el: HTMLElement) {
     const m = await api.meta(path);
-    if (!m.headings.length) this.body.append(h("p", { class: "muted panel-pad" }, "No headings."));
+    if (!m.headings.length) el.append(h("p", { class: "muted panel-pad" }, "No headings."));
     const min = Math.min(...m.headings.map((x) => x.level));
-    for (const hd of m.headings) this.body.append(h("div", { class: "outline-row", style: { paddingLeft: 10 + (hd.level - min) * 14 + "px" }, onclick: () => this.open(path, hd.line, false) }, hd.heading));
+    for (const hd of m.headings) el.append(h("div", { class: "outline-row", style: { paddingLeft: 10 + (hd.level - min) * 14 + "px" }, onclick: () => this.open(path, hd.line, false) }, hd.heading));
   }
 
-  private async properties(path: string) {
+  private async properties(path: string, el: HTMLElement) {
     const m: Meta = await api.meta(path);
     const fm = m.frontmatter ?? {};
-    if (m.frontmatterError) this.body.append(h("p", { class: "error-text panel-pad" }, "Invalid frontmatter: " + m.frontmatterError));
+    if (m.frontmatterError) el.append(h("p", { class: "error-text panel-pad" }, "Invalid frontmatter: " + m.frontmatterError));
     const table = h("div", { class: "props" });
     const fmt = (v: unknown) => (Array.isArray(v) ? v.join(", ") : v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v));
     const parse = (old: unknown, s: string): unknown => {
@@ -406,7 +412,7 @@ export class RightPanel {
       void this.refresh();
     };
     val.addEventListener("keydown", (e) => e.key === "Enter" && void add());
-    this.body.append(h("div", { class: "right-heading" }, "Properties"), table, h("div", { class: "prop-add" }, key, val, h("button", { class: "btn btn-small", onclick: () => void add() }, "Add")));
-    if (m.tags.length) this.body.append(h("div", { class: "right-heading" }, "Tags"), h("div", { class: "panel-pad" }, ...m.tags.map((t) => h("span", { class: "tag-pill", onclick: () => window.dispatchEvent(new CustomEvent("brain:search", { detail: `tag:${t}` })) }, t))));
+    el.append(h("div", { class: "right-heading" }, "Properties"), table, h("div", { class: "prop-add" }, key, val, h("button", { class: "btn btn-small", onclick: () => void add() }, "Add")));
+    if (m.tags.length) el.append(h("div", { class: "right-heading" }, "Tags"), h("div", { class: "panel-pad" }, ...m.tags.map((t) => h("span", { class: "tag-pill", onclick: () => window.dispatchEvent(new CustomEvent("brain:search", { detail: `tag:${t}` })) }, t))));
   }
 }

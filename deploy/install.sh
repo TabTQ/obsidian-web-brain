@@ -40,9 +40,9 @@ install -m 0644 "$HERE/brain.service" /etc/systemd/system/brain.service
 systemctl daemon-reload
 systemctl enable brain >/dev/null
 systemctl restart brain
-sleep 2
 systemctl --no-pager --lines=0 status brain | head -5
-curl -fsS http://127.0.0.1:8090/api/v1/setup/status && echo
+# Wait for the server to listen (startup runs a git sync first, which can take a few seconds).
+for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:8090/api/v1/setup/status 2>/dev/null && echo && break; sleep 1; done
 if [ -f /var/lib/brain/setup-code.txt ]; then
   echo "FIRST-RUN SETUP CODE: $(cat /var/lib/brain/setup-code.txt)"
 fi
